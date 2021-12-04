@@ -1,6 +1,7 @@
 #include <Arduino.h>
 
-double songduration = 15.9;  // Seconds
+const double songduration = 15.9;  // Seconds
+const uint8_t CARDPIN = D4;
 
 void sleep(double seconds) {
   //ESP.deepSleep(seconds * 1000 * 1000, RF_DISABLED);
@@ -8,15 +9,15 @@ void sleep(double seconds) {
 }
 
 void sing() {
-  digitalWrite(D4, HIGH); 
-  sleep(songduration);
-  digitalWrite(D4, LOW); 
+  digitalWrite(CARDPIN, HIGH);  // Toggle transistor on -> bday card starts playing (or at least it SHOULD...)
+  sleep(songduration);          // Wait for song to finish
+  digitalWrite(D4, LOW);        // Toggle transistor off -> bday card shut up
 }
 
 void setup() {
-  pinMode(D4, OUTPUT);
-  digitalWrite(D4, LOW);
-  delay(1000);
+  // Set PIN low (i.e. disable the bday card player) ASAP
+  pinMode(CARDPIN, OUTPUT);
+  digitalWrite(CARDPIN, LOW);
 }
 
 void loop() {
