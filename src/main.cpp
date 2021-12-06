@@ -1,9 +1,7 @@
 #include <Arduino.h>
-#include <NTPClient.h>
 #include <ESP8266WiFi.h>
 #include <WiFiClientSecure.h>
 #include <ESP8266HTTPClient.h>
-#include <WiFiUdp.h>
 #include <config.h>
 
 const char* HOST = HOME;
@@ -15,7 +13,7 @@ void sing() {
 }
 
 void setup() {
-  unsigned long deepsleep = SLEEP_POLL_INTERVAL * 1e6;  // Default deep sleep
+  unsigned long deepsleep = SLEEP_POLL_INTERVAL;  // Default deep sleep
 
   // Set PIN low (i.e. disable the bday card player) ASAP
   pinMode(CARD_PIN, OUTPUT);
@@ -32,21 +30,9 @@ void setup() {
     while (WiFi.status() != WL_CONNECTED) // Wait until WiFi is connected
       delay(500);
 
-    // Get time
-    Serial.println("What time is it?");
-    WiFiUDP ntpUDP;
-    NTPClient timeClient(ntpUDP, NTP_SERVER, NTP_TIME_OFFSET);
-    timeClient.begin();
-    timeClient.update();
-    unsigned long currenttime = timeClient.getEpochTime();
-
-    bool happybirthday = currenttime > BIRTHDAY_TIMESTAMP;
-
     // Call home
     char uri[100];
-    char path[50];
-    sprintf(path, PATH, currenttime, happybirthday);
-    sprintf(uri, "https://%s%s", HOME, path);
+    sprintf(uri, "https://%s%s", HOME, PATH);
 
     Serial.printf("Calling home: %s\n", uri);
 
@@ -57,29 +43,26 @@ void setup() {
     http.begin(client, uri);
     http.GET();
 
+    String payload = http.getString();
+    String happy = String("yay");
+
     // Is it time yet?
-    Serial.println("Time to sing?");
-    if (happybirthday)
+    Serial.println(payload);
+    if (payload.equals(happy))
     {
-      Serial.println("Yay! Happy birthday!");
       sing();
-      deepsleep = (SONG_INTERVAL_MIN + random(SONG_INTERVAL_MAX - SONG_INTERVAL_MIN)) * 1e6;  // Sleep random amount
-    } else {
-      Serial.printf("Nope! Not yet! Wait at least %lu more seconds\n", BIRTHDAY_TIMESTAMP - currenttime);
+      deepsleep = (SONG_INTERVAL_MIN + random(SONG_INTERVAL_MAX - SONG_INTERVAL_MIN));  // Sleep random amount
     }
 
     // Prepare for deep sleep
     Serial.println("Getting ready for bed... yawn *stretches*");
 
-    // Stop timeclient
-    timeClient.end();
-
     // Disconnect WiFi
     WiFi.disconnect();
     WiFi.mode(WIFI_OFF);
 
-    Serial.println("Goodnight!");
-    ESP.deepSleep(deepsleep);
+    Serial.printf("Goodnight! Sleeping for %lu seconds\n", deepsleep);
+    ESP.deepSleep(deepsleep * 1e6);
   }
 }
 

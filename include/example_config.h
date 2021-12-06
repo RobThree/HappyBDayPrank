@@ -10,17 +10,14 @@
 #define SERIAL_SPEED        460800
 #define CARD_PIN            D1
 #define SSL_PORT            443
-#define NTP_SERVER          "europe.pool.ntp.org"
-#define NTP_TIME_OFFSET     3600
 
 // Play song interval (in seconds)
 #define SONG_INTERVAL_MIN   30
 #define SONG_INTERVAL_MAX   300
 // Other intervals (in seconds)
 #define SONG_DURATION       15.9
-#define BIRTHDAY_TIMESTAMP  1638439200
 #define SLEEP_POLL_INTERVAL 300
 
 #define HOME                "foo.bar.com"
-#define PATH                "/bday/?t=%lu&b=%d"
+#define PATH                "/bday/"
 #endif
