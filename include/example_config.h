@@ -19,5 +19,5 @@
 #define SLEEP_POLL_INTERVAL 300
 
 #define HOME                "foo.bar.com"
-#define PATH                "/bday/"
+#define PATH                "/bday/?v=%f"
 #endif

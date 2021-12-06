@@ -31,9 +31,15 @@ void setup() {
     while (WiFi.status() != WL_CONNECTED) // Wait until WiFi is connected
       delay(500);
 
+    // Read battery voltage
+    float batt = (float)analogRead(A0) * 0.00449;
+    Serial.printf("Voltage: %f\n", batt);
+
     // Call home
     char uri[100];
-    sprintf(uri, "https://%s%s", HOME, PATH);
+    char path[50];
+    sprintf(path, PATH, batt);
+    sprintf(uri, "https://%s%s", HOME, path);
 
     Serial.printf("Calling home: %s\n", uri);
 
