@@ -1,75 +1,86 @@
 #include <Arduino.h>
 #include <NTPClient.h>
 #include <ESP8266WiFi.h>
+#include <WiFiClientSecure.h>
 #include <ESP8266HTTPClient.h>
 #include <WiFiUdp.h>
 #include <config.h>
 
-const double SONGDURATION = 15.9;  // Seconds
-const uint8_t CARDPIN = D4;
-const unsigned long BIRTHDAY = 1639378800; // Monday, December 13, 2021 8:00:00 AM GMT+01:00
-const unsigned long DEEPSLEEP = 300;  // Seconds
-
-WiFiEventHandler gotIpEventHandler, disconnectedEventHandler;
-WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 3600, 60000);
-
-void setupWiFi() {
-  // Start WiFi
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWD);
-
-  disconnectedEventHandler = WiFi.onStationModeDisconnected([](const WiFiEventStationModeDisconnected& event)
-  {
-    Serial.println("Disconnected!");
-    WiFi.reconnect();
-  });
-
-  gotIpEventHandler = WiFi.onStationModeGotIP([](const WiFiEventStationModeGotIP& event)
-  {
-    Serial.printf("Got IP: %s\n", event.ip.toString().c_str());
-  });
-
-}
-
-void startWiFi() {
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-  }
-}
-
-void sleep(double seconds) {
-  delay(seconds * 1000);
-}
+const char* HOST = HOME;
 
 void sing() {
-  digitalWrite(CARDPIN, HIGH);  // Toggle transistor on -> bday card starts playing (or at least it SHOULD...)
-  sleep(SONGDURATION);          // Wait for song to finish
-  digitalWrite(D4, LOW);        // Toggle transistor off -> bday card shut up
+  digitalWrite(CARD_PIN, HIGH);  // Toggle transistor on -> bday card starts playing (or at least it SHOULD...)
+  delay(SONG_DURATION * 1e3);    // Wait for song to finish
+  digitalWrite(CARD_PIN, LOW);   // Toggle transistor off -> bday card shut up
 }
 
 void setup() {
+  unsigned long deepsleep = SLEEP_POLL_INTERVAL * 1e6;  // Default deep sleep
+
   // Set PIN low (i.e. disable the bday card player) ASAP
-  pinMode(CARDPIN, OUTPUT);
-  digitalWrite(CARDPIN, LOW);
+  pinMode(CARD_PIN, OUTPUT);
+  digitalWrite(CARD_PIN, LOW);
+  digitalWrite(LED_BUILTIN, LOW);
   pinMode(D0, WAKEUP_PULLUP);
+  Serial.begin(SERIAL_SPEED);
 
-  Serial.begin(460800);
-  setupWiFi();
-  startWiFi();
+  while (true) {
+    Serial.println("Starting WiFi");
+    // Start WiFi
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWD);
+    while (WiFi.status() != WL_CONNECTED) // Wait until WiFi is connected
+      delay(500);
 
-  timeClient.begin();
-}
+    // Get time
+    Serial.println("What time is it?");
+    WiFiUDP ntpUDP;
+    NTPClient timeClient(ntpUDP, NTP_SERVER, NTP_TIME_OFFSET);
+    timeClient.begin();
+    timeClient.update();
+    unsigned long currenttime = timeClient.getEpochTime();
 
-void loop() {
-  timeClient.update();
-  unsigned long currenttime = timeClient.getEpochTime();
-  if (currenttime > BIRTHDAY) { 
-    Serial.println("Yay!");
-    sing();
-    sleep(random(300));
-  } else {
-    Serial.printf("Nope. At least %lu seconds left. Snoozing for %lu seconds\n", BIRTHDAY - currenttime, DEEPSLEEP);
-    sleep(DEEPSLEEP); // ESP.deepsleep won't work for some reason. Screw it, using regular sleep.
+    bool happybirthday = currenttime > BIRTHDAY_TIMESTAMP;
+
+    // Call home
+    char uri[100];
+    char path[50];
+    sprintf(path, PATH, currenttime, happybirthday);
+    sprintf(uri, "https://%s%s", HOME, path);
+
+    Serial.printf("Calling home: %s\n", uri);
+
+    WiFiClientSecure client;
+    HTTPClient http;
+    client.connect(HOST, SSL_PORT);
+    client.setInsecure();
+    http.begin(client, uri);
+    http.GET();
+
+    // Is it time yet?
+    Serial.println("Time to sing?");
+    if (happybirthday)
+    {
+      Serial.println("Yay! Happy birthday!");
+      sing();
+      deepsleep = (SONG_INTERVAL_MIN + random(SONG_INTERVAL_MAX - SONG_INTERVAL_MIN)) * 1e6;  // Sleep random amount
+    } else {
+      Serial.printf("Nope! Not yet! Wait at least %lu more seconds\n", BIRTHDAY_TIMESTAMP - currenttime);
+    }
+
+    // Prepare for deep sleep
+    Serial.println("Getting ready for bed... yawn *stretches*");
+
+    // Stop timeclient
+    timeClient.end();
+
+    // Disconnect WiFi
+    WiFi.disconnect();
+    WiFi.mode(WIFI_OFF);
+
+    Serial.println("Goodnight!");
+    ESP.deepSleep(deepsleep);
   }
 }
+
+void loop() { }
