@@ -5,6 +5,7 @@
 #include <config.h>
 
 const char* HOST = HOME;
+const String happy = String("yay");
 
 void sing() {
   digitalWrite(CARD_PIN, HIGH);  // Toggle transistor on -> bday card starts playing (or at least it SHOULD...)
@@ -44,7 +45,6 @@ void setup() {
     http.GET();
 
     String payload = http.getString();
-    String happy = String("yay");
 
     // Is it time yet?
     Serial.println(payload);
