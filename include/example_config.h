@@ -6,6 +6,7 @@
 // Replace with your actual SSID and password:
 #define WIFI_SSID           "***SSID***"
 #define WIFI_PASSWD         "***WIFIPASSWORD***"
+#define RETRYCOUNT          10
 
 #define SERIAL_SPEED        460800
 #define CARD_PIN            D1

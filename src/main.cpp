@@ -15,6 +15,7 @@ void sing() {
 
 void setup() {
   unsigned long deepsleep = SLEEP_POLL_INTERVAL;  // Default deep sleep
+  int retry = 0;
 
   // Set PIN low (i.e. disable the bday card player) ASAP
   pinMode(CARD_PIN, OUTPUT);
@@ -28,36 +29,40 @@ void setup() {
     // Start WiFi
     WiFi.mode(WIFI_STA);
     WiFi.begin(WIFI_SSID, WIFI_PASSWD);
-    while (WiFi.status() != WL_CONNECTED) // Wait until WiFi is connected
-      delay(500);
+    while (WiFi.status() != WL_CONNECTED && retry++ < RETRYCOUNT) { // Wait until WiFi is connected or retries exceeded
+      delay(1000);
+      Serial.printf("WiFi status: %d\n", WiFi.status());
+    }
 
-    // Read battery voltage
-    float batt = (float)analogRead(A0) * 0.00449;
-    Serial.printf("Voltage: %f\n", batt);
+    if (WiFi.status() == WL_CONNECTED) {
+      // Read battery voltage
+      float batt = (float)analogRead(A0) * 0.00449;
+      Serial.printf("Voltage: %f\n", batt);
 
-    // Call home
-    char uri[100];
-    char path[50];
-    sprintf(path, PATH, batt);
-    sprintf(uri, "https://%s%s", HOME, path);
+      // Call home
+      char uri[100];
+      char path[50];
+      sprintf(path, PATH, batt);
+      sprintf(uri, "https://%s%s", HOME, path);
 
-    Serial.printf("Calling home: %s\n", uri);
+      Serial.printf("Calling home: %s\n", uri);
 
-    WiFiClientSecure client;
-    HTTPClient http;
-    client.connect(HOST, SSL_PORT);
-    client.setInsecure();
-    http.begin(client, uri);
-    http.GET();
+      WiFiClientSecure client;
+      HTTPClient http;
+      client.connect(HOST, SSL_PORT);
+      client.setInsecure();
+      http.begin(client, uri);
+      http.GET();
 
-    String payload = http.getString();
+      String payload = http.getString();
 
-    // Is it time yet?
-    Serial.println(payload);
-    if (payload.equals(happy))
-    {
-      sing();
-      deepsleep = (SONG_INTERVAL_MIN + random(SONG_INTERVAL_MAX - SONG_INTERVAL_MIN));  // Sleep random amount
+      // Is it time yet?
+      Serial.println(payload);
+      if (payload.equals(happy))
+      {
+        sing();
+        deepsleep = (SONG_INTERVAL_MIN + random(SONG_INTERVAL_MAX - SONG_INTERVAL_MIN));  // Sleep random amount
+      }
     }
 
     // Prepare for deep sleep
